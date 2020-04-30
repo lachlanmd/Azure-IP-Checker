@@ -1,5 +1,5 @@
 ## IP CHECKER RUNBOOK PROTOTYPE
-## Version 0.3
+## Version 0.4
 ## BY LACHLAN MATTHEW-DICKINSON
 ##
 ## Input single IP, wil let you know the BGP community and Service Tags that IP belongs to.
@@ -14,7 +14,11 @@ param
   [Parameter(
     Mandatory = $true)]
   [System.String]
-  $ipToCheck
+  $ipToCheck,
+  [Parameter(
+    Mandatory = $false)]
+  [System.String]
+  $serviceTagLocation = "australiacentral"
 )
 
 function New-AzureRmAuthToken
@@ -213,7 +217,7 @@ $subscriptionId = $(Get-AzureKeyVaultSecret -VaultName 'IPAddressCheckerKV' -Nam
 
 # Fetch service tags
 
-$targetUri = "https://management.azure.com/subscriptions/$subscriptionId/providers/Microsoft.Network/locations/australiacentral/serviceTags?api-version=2019-12-01"
+$targetUri = "https://management.azure.com/subscriptions/$subscriptionId/providers/Microsoft.Network/locations/$location/serviceTags?api-version=2019-12-01"
 
 $serviceTags = New-AzureRmRestAPICall `
    -targetUri $targetUri `
