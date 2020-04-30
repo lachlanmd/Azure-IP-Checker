@@ -1,0 +1,18 @@
+{
+    "properties": {
+        "roleName": "Microsoft.Network IP Range Reader",
+        "description": "Provides permissions to fetch BGP community and Service Tag lists only.",
+        "assignableScopes": [],
+        "permissions": [
+            {
+                "actions": [
+                    "Microsoft.Network/bgpServiceCommunities/read",
+                    "Microsoft.Network/locations/serviceTags/read"
+                ],
+                "notActions": [],
+                "dataActions": [],
+                "notDataActions": []
+            }
+        ]
+    }
+}
