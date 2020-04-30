@@ -8,7 +8,6 @@
 ##
 ## Todo:
 ## - Allow input of "n" number of IPs, not just single
-## - Convert to run locally (Non-Runbook version)
 ## - Revise for compatability as an Azure Function
 
 param
