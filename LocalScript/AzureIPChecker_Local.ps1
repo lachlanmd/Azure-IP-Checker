@@ -1,7 +1,7 @@
 #Requires -Modules Az
 
 ## IP CHECKER LOCAL PROTOTYPE
-## Version 0.2
+## Version 0.3
 ## BY LACHLAN MATTHEW-DICKINSON
 ##
 ## Input single IP, wil let you know the BGP community and Service Tags that IP belongs to.
@@ -26,10 +26,9 @@ param
   $returnFull = $false
 )
 
-function checkSubnet ([string]$cidr,[string]$ip)
-{
+function checkSubnet ([string]$cidr, [string]$ip) {
   # Source: http://www.padisetty.com/2014/05/powershell-bit-manipulation-and-network.html
-  $network,[int]$subnetlen = $cidr.Split('/')
+  $network, [int]$subnetlen = $cidr.Split('/')
   $a = [uint32[]]$network.Split('.')
   [uint32]$unetwork = ($a[0] -shl 24) + ($a[1] -shl 16) + ($a[2] -shl 8) + $a[3]
 
@@ -68,14 +67,16 @@ $foundServiceList = @()
 
 foreach ($service in $serviceTags.values) {
   foreach ($addressRange in $service.properties.Addressprefixes) {
-    if (checkSubnet $addressRange $ipToCheck) {
-      $foundServiceList += New-Object PSCustomObject -Property @{
-        'Type' = 'serviceTag'
-        'Location' = $service.properties.region
-        'Name' = $service.Name
-        'AddressRange' = $addressRange
-        'CommunityValue' = $null
-        'Object' = $service
+    if ($addressRange -match '^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(?:\/(?:[0-9]|[1-2][0-9]|3[0-2])){0,1}$') {
+      if (checkSubnet $addressRange $ipToCheck) {
+        $foundServiceList += New-Object PSCustomObject -Property @{
+          'Type'           = 'serviceTag'
+          'Location'       = $service.properties.region
+          'Name'           = $service.Name
+          'AddressRange'   = $addressRange
+          'CommunityValue' = $null
+          'Object'         = $service
+        }
       }
     }
   }
@@ -84,14 +85,16 @@ foreach ($service in $serviceTags.values) {
 foreach ($value in $bgpCommunities.value) {
   foreach ($community in $value.properties.bgpCommunities) {
     foreach ($addressRange in $community.communityPrefixes) {
-      if (checkSubnet $addressRange $ipToCheck) {
-        $foundServiceList += New-Object PSCustomObject -Property @{
-          'Type' = 'bgpCommunity'
-          'Location' = $community.serviceSupportedRegion
-          'Name' = $community.communityName
-          'AddressRange' = $addressRange
-          'CommunityValue' = $community.communityValue
-          'Object' = $community
+      if ($addressRange -match '^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(?:\/(?:[0-9]|[1-2][0-9]|3[0-2])){0,1}$') {
+        if (checkSubnet $addressRange $ipToCheck) {
+          $foundServiceList += New-Object PSCustomObject -Property @{
+            'Type'           = 'bgpCommunity'
+            'Location'       = $community.serviceSupportedRegion
+            'Name'           = $community.communityName
+            'AddressRange'   = $addressRange
+            'CommunityValue' = $community.communityValue
+            'Object'         = $community
+          }
         }
       }
     }
@@ -103,7 +106,8 @@ foreach ($value in $bgpCommunities.value) {
 foreach ($service in $foundServiceList) {
   if ($service.Type -eq 'bgpCommunity') {
     Write-Output "IP Address [$($ipToCheck)] found in [$($service.Type) - $($service.Name)], BGP Community [$($service.CommunityValue)]"
-  } else {
+  }
+  else {
     Write-Output "IP Address [$($ipToCheck)] found in [$($service.Type) - $($service.Name)], IP Range [$($service.AddressRange)]"
   }
 }

@@ -1,12 +1,11 @@
 ## IP CHECKER RUNBOOK PROTOTYPE
-## Version 0.4
+## Version 0.5
 ## BY LACHLAN MATTHEW-DICKINSON
 ##
 ## Input single IP, wil let you know the BGP community and Service Tags that IP belongs to.
 ##
 ## Todo:
 ## - Allow input of "n" number of IPs, not just single
-## - Revise for compatability as an Azure Function
 
 param
 (
@@ -20,9 +19,8 @@ param
   $serviceTagLocation = "australiacentral"
 )
 
-function New-AzureRmAuthToken
-{
-<#
+function New-AzureRmAuthToken {
+  <#
     .SYNOPSIS
         Creates a new authentication token for use against Azure RM REST API operations.
     .DESCRIPTION
@@ -60,8 +58,7 @@ function New-AzureRmAuthToken
     [System.String]
     $AadTenantId
   )
-  process
-  {
+  process {
     # grab app constants
     $aadUri = 'https://login.microsoftonline.com/{0}/oauth2/token'
     $resource = 'https://management.core.windows.net'
@@ -82,7 +79,7 @@ function New-AzureRmAuthToken
       "client_secret=$encodedClientAppSecret",
       "resource=$encodedResource"
     )
-    $body = [System.String]::Join("&",$bodyParams)
+    $body = [System.String]::Join("&", $bodyParams)
 
     # Invoke the REST API to get a token
     Invoke-RestMethod -Uri $tenantAuthUri -Method POST -Headers $headers -Body $body
@@ -95,10 +92,9 @@ function New-AzureRmAuthToken
   }
 }
 
-function checkSubnet ([string]$cidr,[string]$ip)
-{
+function checkSubnet ([string]$cidr, [string]$ip) {
   # Source: http://www.padisetty.com/2014/05/powershell-bit-manipulation-and-network.html
-  $network,[int]$subnetlen = $cidr.Split('/')
+  $network, [int]$subnetlen = $cidr.Split('/')
   $a = [uint32[]]$network.Split('.')
   [uint32]$unetwork = ($a[0] -shl 24) + ($a[1] -shl 16) + ($a[2] -shl 8) + $a[3]
 
@@ -110,8 +106,7 @@ function checkSubnet ([string]$cidr,[string]$ip)
   $unetwork -eq ($mask -band $uip)
 }
 
-function New-AzureRmRestAPICall
-{
+function New-AzureRmRestAPICall {
   param
   (
     [Parameter(
@@ -126,7 +121,7 @@ function New-AzureRmRestAPICall
 
     [Parameter(
       Mandatory = $true)]
-    [ValidateSet('GET','HEAD','PUT','POST','PATCH')]
+    [ValidateSet('GET', 'HEAD', 'PUT', 'POST', 'PATCH')]
     [System.String]
     $method,
 
@@ -138,16 +133,16 @@ function New-AzureRmRestAPICall
   # Construct the REST API Header
 
   $headers = @{
-    'Host' = 'management.azure.com'
-    'Content-Type' = 'application/json';
+    'Host'          = 'management.azure.com'
+    'Content-Type'  = 'application/json';
     'Authorization' = "Bearer $token";
   }
 
   # Call the target URI
   Invoke-RestMethod `
-     -Uri $targetUri `
-     -Method $method `
-     -Headers $headers
+    -Uri $targetUri `
+    -Method $method `
+    -Headers $headers
 
   <#
     # TODO: Make work with a body in request
@@ -175,26 +170,24 @@ function New-AzureRmRestAPICall
 
 # Login with Runbook Credentials
 $connectionName = "AzureRunAsConnection"
-try
-{
+try {
   # Get the connection "AzureRunAsConnection "
   $servicePrincipalConnection = Get-AutomationConnection -Name $connectionName
 
   Add-AzureRmAccount `
-     -ServicePrincipal `
-     -TenantId $servicePrincipalConnection.TenantId `
-     -ApplicationId $servicePrincipalConnection.ApplicationId `
-     -CertificateThumbprint $servicePrincipalConnection.CertificateThumbprint `
-     | Out-Null
+    -ServicePrincipal `
+    -TenantId $servicePrincipalConnection.TenantId `
+    -ApplicationId $servicePrincipalConnection.ApplicationId `
+    -CertificateThumbprint $servicePrincipalConnection.CertificateThumbprint `
+  | Out-Null
 
-} catch
-{
-  if (!$servicePrincipalConnection)
-  {
+}
+catch {
+  if (!$servicePrincipalConnection) {
     $ErrorMessage = "Connection $connectionName not found."
     throw $ErrorMessage
-  } else
-  {
+  }
+  else {
     Write-Error -Message $_.Exception
     throw $_.Exception
   }
@@ -203,9 +196,9 @@ try
 # Fill required variables
 
 $authToken = New-AzureRmAuthToken `
-   -AadClientAppId $(Get-AzureKeyVaultSecret -VaultName 'IPAddressCheckerKV' -Name 'clientid').SecretValueText.ToString() `
-   -AadClientAppSecret $(Get-AzureKeyVaultSecret -VaultName 'IPAddressCheckerKV' -Name 'clientsecret').SecretValueText.ToString() `
-   -AadTenantId $(Get-AzureKeyVaultSecret -VaultName 'IPAddressCheckerKV' -Name 'tenantid').SecretValueText.ToString()
+  -AadClientAppId $(Get-AzureKeyVaultSecret -VaultName 'IPAddressCheckerKV' -Name 'clientid').SecretValueText.ToString() `
+  -AadClientAppSecret $(Get-AzureKeyVaultSecret -VaultName 'IPAddressCheckerKV' -Name 'clientsecret').SecretValueText.ToString() `
+  -AadTenantId $(Get-AzureKeyVaultSecret -VaultName 'IPAddressCheckerKV' -Name 'tenantid').SecretValueText.ToString()
 
 $authToken = $authToken.access_token
 $subscriptionId = $(Get-AzureKeyVaultSecret -VaultName 'IPAddressCheckerKV' -Name 'subscriptionid').SecretValueText.ToString()
@@ -216,21 +209,21 @@ $subscriptionId = $(Get-AzureKeyVaultSecret -VaultName 'IPAddressCheckerKV' -Nam
 
 # Fetch service tags
 
-$targetUri = "https://management.azure.com/subscriptions/$subscriptionId/providers/Microsoft.Network/locations/$location/serviceTags?api-version=2019-12-01"
+$targetUri = "https://management.azure.com/subscriptions/$subscriptionId/providers/Microsoft.Network/locations/$serviceTagLocation/serviceTags?api-version=2019-12-01"
 
 $serviceTags = New-AzureRmRestAPICall `
-   -targetUri $targetUri `
-   -Method 'GET' `
-   -token $authToken
+  -targetUri $targetUri `
+  -Method 'GET' `
+  -token $authToken
 
 # Fetch BGP Communities
 
 $targetUri = "https://management.azure.com/subscriptions/$subscriptionId/providers/Microsoft.Network/bgpServiceCommunities?api-version=2019-12-01"
 
 $bgpCommunities = New-AzureRmRestAPICall `
-   -targetUri $targetUri `
-   -Method 'GET' `
-   -token $authToken
+  -targetUri $targetUri `
+  -Method 'GET' `
+  -token $authToken
 
 ## Filter through retrieved results
 
@@ -238,14 +231,16 @@ $foundServiceList = @()
 
 foreach ($service in $serviceTags.values) {
   foreach ($addressRange in $service.properties.Addressprefixes) {
-    if (checkSubnet $addressRange $ipToCheck) {
-      $foundServiceList += New-Object PSCustomObject -Property @{
-        'Type' = 'serviceTag'
-        'Location' = $service.properties.region
-        'Name' = $service.Name
-        'AddressRange' = $addressRange
-        'CommunityValue' = $null
-        'Object' = $service
+    if ($addressRange -match '^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(?:\/(?:[0-9]|[1-2][0-9]|3[0-2])){0,1}$') {
+      if (checkSubnet $addressRange $ipToCheck) {
+        $foundServiceList += New-Object PSCustomObject -Property @{
+          'Type'           = 'serviceTag'
+          'Location'       = $service.properties.region
+          'Name'           = $service.Name
+          'AddressRange'   = $addressRange
+          'CommunityValue' = $null
+          'Object'         = $service
+        }
       }
     }
   }
@@ -254,14 +249,16 @@ foreach ($service in $serviceTags.values) {
 foreach ($value in $bgpCommunities.value) {
   foreach ($community in $value.properties.bgpCommunities) {
     foreach ($addressRange in $community.communityPrefixes) {
-      if (checkSubnet $addressRange $ipToCheck) {
-        $foundServiceList += New-Object PSCustomObject -Property @{
-          'Type' = 'bgpCommunity'
-          'Location' = $community.serviceSupportedRegion
-          'Name' = $community.communityName
-          'AddressRange' = $addressRange
-          'CommunityValue' = $community.communityValue
-          'Object' = $community
+      if ($addressRange -match '^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(?:\/(?:[0-9]|[1-2][0-9]|3[0-2])){0,1}$') {
+        if (checkSubnet $addressRange $ipToCheck) {
+          $foundServiceList += New-Object PSCustomObject -Property @{
+            'Type'           = 'bgpCommunity'
+            'Location'       = $community.serviceSupportedRegion
+            'Name'           = $community.communityName
+            'AddressRange'   = $addressRange
+            'CommunityValue' = $community.communityValue
+            'Object'         = $community
+          }
         }
       }
     }
@@ -273,7 +270,8 @@ foreach ($value in $bgpCommunities.value) {
 foreach ($service in $foundServiceList) {
   if ($service.Type -eq 'bgpCommunity') {
     "IP Address [$($ipToCheck)] found in [$($service.Type) - $($service.Name)], BGP Community [$($service.CommunityValue)]"
-  } else {
+  }
+  else {
     "IP Address [$($ipToCheck)] found in [$($service.Type) - $($service.Name)], IP Range [$($service.AddressRange)]"
   }
 }
