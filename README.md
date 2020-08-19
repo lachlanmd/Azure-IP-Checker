@@ -15,7 +15,7 @@ If you'd prefer to still target the list of live service tags only, set the `use
 **Mandatory**  
 `.\AzureIPChecker_Local.ps1 -IpToCheck <Input IP to Check>`  
 
-**Optional**
+**Optional**  
 `[-ServiceTagLocation <Azure location to lookup Service Tags for>]`  
 `[-returnFull <$true to return the full JSON output, $false for summary only>]`  
 `[-useServiceTagJSON <$true by default, will fetch the weekly released JSON from Microsoft, $false will use the Az module instead>`  
