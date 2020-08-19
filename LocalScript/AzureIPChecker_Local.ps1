@@ -1,10 +1,14 @@
 #Requires -Modules Az
 
 ## IP CHECKER LOCAL PROTOTYPE
-## Version 0.3
+## Version 0.4
 ## BY LACHLAN MATTHEW-DICKINSON
 ##
 ## Input single IP, wil let you know the BGP community and Service Tags that IP belongs to.
+##
+## By default, script now uses the public list of Service Tags published weekly at:
+## https://www.microsoft.com/en-us/download/details.aspx?id=56519
+## This allows for planning ahead of new service tags as they are added. 
 ##
 ## Todo:
 ## - Allow input of "n" number of IPs, not just single
@@ -23,7 +27,11 @@ param
   [Parameter(
     Mandatory = $false)]
   [System.Boolean]
-  $returnFull = $false
+  $returnFull = $false,
+  [Parameter(
+    Mandatory = $false)]
+  [System.Boolean]
+  $useServiceTagJSON = $true
 )
 
 function checkSubnet ([string]$cidr, [string]$ip) {
@@ -55,7 +63,23 @@ catch {
 ## Fetch Information from API to filter
 # Fetch service tags
 
-$serviceTags = Get-AzNetworkServiceTag -Location $serviceTagLocation
+if ($useServiceTagJSON) {
+
+  # Uses published Service Tag list
+
+  $targetURI = ((Invoke-RestMethod -URI 'https://www.microsoft.com/en-us/download/confirmation.aspx?id=56519') `
+      -split 'href=\"(https:\/\/download.microsoft.com\/.*?\/ServiceTags_Public_[0-9]{8}.json)\"')[1]
+
+  $serviceTags = Invoke-RestMethod -ContentType "application/octet-stream" -URI ($targetURI)
+
+}
+else {
+
+  # Uses Azure Authenticated API (Backup/Depreciated Method)
+
+  $serviceTags = Get-AzNetworkServiceTag -Location $serviceTagLocation
+  
+}
 
 # Fetch BGP Communities
 
@@ -71,7 +95,7 @@ foreach ($service in $serviceTags.values) {
       if (checkSubnet $addressRange $ipToCheck) {
         $foundServiceList += New-Object PSCustomObject -Property @{
           'Type'           = 'serviceTag'
-          'Location'       = $service.properties.region
+          'Location'       = if ($null -eq $service.properties.region) { "Global" } else { $service.properties.region }
           'Name'           = $service.Name
           'AddressRange'   = $addressRange
           'CommunityValue' = $null
