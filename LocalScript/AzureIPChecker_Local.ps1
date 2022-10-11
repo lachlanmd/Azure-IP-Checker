@@ -1,7 +1,7 @@
 #Requires -Modules Az
 
 ## IP CHECKER LOCAL PROTOTYPE
-## Version 0.4
+## Version 0.5
 ## BY LACHLAN MATTHEW-DICKINSON
 ##
 ## Input single IP, wil let you know the BGP community and Service Tags that IP belongs to.
@@ -34,7 +34,7 @@ param
   $useServiceTagJSON = $true
 )
 
-function checkSubnet ([string]$cidr, [string]$ip) {
+function Get-SubnetInfo ([string]$cidr, [string]$ip) {
   # Source: http://www.padisetty.com/2014/05/powershell-bit-manipulation-and-network.html
   $network, [int]$subnetlen = $cidr.Split('/')
   $a = [uint32[]]$network.Split('.')
@@ -92,7 +92,7 @@ $foundServiceList = @()
 foreach ($service in $serviceTags.values) {
   foreach ($addressRange in $service.properties.Addressprefixes) {
     if ($addressRange -match '^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(?:\/(?:[0-9]|[1-2][0-9]|3[0-2])){0,1}$') {
-      if (checkSubnet $addressRange $ipToCheck) {
+      if (Get-SubnetInfo $addressRange $ipToCheck) {
         $foundServiceList += New-Object PSCustomObject -Property @{
           'Type'           = 'serviceTag'
           'Location'       = if ($null -eq $service.properties.region) { "Global" } else { $service.properties.region }
@@ -110,7 +110,7 @@ foreach ($value in $bgpCommunities.value) {
   foreach ($community in $value.properties.bgpCommunities) {
     foreach ($addressRange in $community.communityPrefixes) {
       if ($addressRange -match '^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(?:\/(?:[0-9]|[1-2][0-9]|3[0-2])){0,1}$') {
-        if (checkSubnet $addressRange $ipToCheck) {
+        if (Get-SubnetInfo $addressRange $ipToCheck) {
           $foundServiceList += New-Object PSCustomObject -Property @{
             'Type'           = 'bgpCommunity'
             'Location'       = $community.serviceSupportedRegion
@@ -141,8 +141,6 @@ if ($true -eq $returnFull) {
 }
 
 <#
-Copyright 2020 LACHLAN MATTHEW-DICKINSON
-
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files
 (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify,
 merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
