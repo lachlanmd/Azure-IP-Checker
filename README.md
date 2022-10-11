@@ -22,6 +22,8 @@ If you'd prefer to still target the list of live service tags only, set the `use
 
 ### Runbook Version
 
+**NOTE: Method for Runbook execution used here is depreciated, so you'll need to do some fix-er-up-ering if I don't get to it first!**
+
 **Mandatory**  
 `IpToCheck <Input IP to Check>`  
 
